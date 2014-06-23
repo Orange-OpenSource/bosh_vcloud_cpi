@@ -32,30 +32,6 @@ module VCloudCloud
 
     describe ".invoke" do
 
-      it "setup restclient in absence of proxy" do
-        restclient = double("rest client")
-
-        client.should_receive(:proxy_from_env).and_return nil
-        RestClient::Request.should_receive(:new).and_return restclient
-        restclient.should_not_receive(:proxy)
-
-        client.send(:setup_restclient, nil)
-      end
-
-      it "setup restclient in presence of proxy" do
-        restclient = double("rest client")
-
-        client.should_receive(:proxy_from_env).and_return 'http://myproxy:3128'
-        RestClient::Request.should_receive(:new).and_return restclient
-        restclient.should_receive(:proxy).with('http://myproxy:3128')
-
-        client.send(:setup_restclient, nil)
-      end
-
-      it "extract https_proxy and http_proxy from env as a proxy uri" do
-        client.proxy_from_env.should be_nil
-      end
-
       it "fetch auth header" do
         version_response = double('version_response')
         url_node = double('login url node')
@@ -275,18 +251,17 @@ module VCloudCloud
         subject.should_receive(:proxy_from_env).and_return(nil)
         restclient = double("rest client")
         RestClient::Request.should_receive(:new).and_return restclient
-        restclient.should_not_receive(:proxy)
 
-        subject.setup_restclient({})
+        subject.setup_restclient({:method => :get , :url => 'http://anyurl.org'})
+        RestClient.proxy.should be_nil
       end
 
       it 'instanciates a RestClient assigning proxy when defined' do
         subject.should_receive(:proxy_from_env).and_return('http://httpsproxy:3128')
         restclient = double("rest client")
-        RestClient::Request.should_receive(:new).and_return restclient
-        restclient.should_receive(:proxy).with('http://httpsproxy:3128')
-
-        subject.setup_restclient({})
+        RestClient::Request.should_receive(:new)
+        subject.setup_restclient({:method => :get , :url => 'http://anyurl.org'})
+        RestClient.proxy.should eq('http://httpsproxy:3128')
       end
 
     end

@@ -286,16 +286,12 @@ module VCloudCloud
   class RestClientHelper
 
     def setup_restclient(params)
-      rest_client_request = RestClient::Request.new(params)
-      proxy_uri = proxy_from_env
-      if proxy_uri
-        rest_client_request.proxy(proxy_uri)
-      end
-      rest_client_request
+      RestClient.proxy = proxy_from_env
+      RestClient::Request.new(params)
     end
 
     def proxy_from_env
-      proxy = ENV['https_proxy'] || ENV['HTTPS_PROXY'] || ENV['http_proxy'] || ENV['HTTP_PROXY']
+      ENV['https_proxy'] || ENV['HTTPS_PROXY'] || ENV['http_proxy'] || ENV['HTTP_PROXY']
     end
   end
 end
