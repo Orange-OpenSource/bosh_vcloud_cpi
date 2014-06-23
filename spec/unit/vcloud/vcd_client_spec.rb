@@ -31,6 +31,31 @@ module VCloudCloud
     end
 
     describe ".invoke" do
+
+      it "setup restclient in absence of proxy" do
+        restclient = double("rest client")
+
+        client.should_receive(:proxy_from_env).and_return nil
+        RestClient::Request.should_receive(:new).and_return restclient
+        restclient.should_not_receive(:proxy)
+
+        client.send(:setup_restclient, nil)
+      end
+
+      it "setup restclient in presence of proxy" do
+        restclient = double("rest client")
+
+        client.should_receive(:proxy_from_env).and_return 'http://myproxy:3128'
+        RestClient::Request.should_receive(:new).and_return restclient
+        restclient.should_receive(:proxy).with('http://myproxy:3128')
+
+        client.send(:setup_restclient, nil)
+      end
+
+      it "extract https_proxy and http_proxy from env as a proxy uri" do
+        client.proxy_from_env.should be_nil
+      end
+
       it "fetch auth header" do
         version_response = double('version_response')
         url_node = double('login url node')
@@ -51,21 +76,31 @@ module VCloudCloud
 
         info_response = double("info response")
         info_response.should_receive(:code).and_return 204
+
+        restclient_helper = double("rest client helper")
+        restclient = double("rest client")
+        VCloudCloud::RestClientHelper.should_receive(:new).at_least(1).times.and_return(restclient_helper)
+
         # version
-        RestClient::Request.should_receive(:execute) do |arg|
+        restclient_helper.should_receive(:setup_restclient) do |arg|
           arg[:url].should == base_url.merge('/api/versions').to_s
           arg[:cookies].should be_nil
-        end.and_return version_response
+        end.and_return restclient
+        restclient.should_receive(:execute).and_return version_response
+
         # login
-        RestClient::Request.should_receive(:execute) do |arg|
+        restclient_helper.should_receive(:setup_restclient) do |arg|
           arg[:url].should == base_url.merge("/api/sessions").to_s
           arg[:cookies].should be_nil
-        end.and_return login_response
+        end.and_return restclient
+        restclient.should_receive(:execute).and_return login_response
+
         # /info
-        RestClient::Request.should_receive(:execute) do |arg|
+        restclient_helper.should_receive(:setup_restclient) do |arg|
           arg[:url].should == base_url.merge("/info").to_s
           arg[:cookies].should == cookies
-        end.and_return info_response
+        end.and_return restclient
+        restclient.should_receive(:execute).and_return info_response
 
         client.invoke :get, "/info"
       end
@@ -208,6 +243,52 @@ module VCloudCloud
 
         expect{client.wait_entity(entity)}.to raise_error /tasks failed/
       end
+    end
+  end
+
+  describe RestClientHelper do
+    context 'proxy_from_env' do
+      it 'prefers env $https_proxy over $http_proxy' do
+        stub_const('ENV', { 'https_proxy' => 'http://httpsproxy:3128','http_proxy' => 'http://httpproxy:3128'})
+        subject.proxy_from_env.should eq('http://httpsproxy:3128')
+      end
+      it 'uses env $https_proxy or $HTTP_PROXY if defined' do
+        stub_const('ENV', { 'https_proxy' => 'http://httpsproxy:3128'})
+        subject.proxy_from_env.should eq('http://httpsproxy:3128')
+        stub_const('ENV', { 'HTTPS_PROXY' => 'http://httpsproxy:3128'})
+        subject.proxy_from_env.should eq('http://httpsproxy:3128')
+      end
+      it 'uses env $http_proxy if defined' do
+        stub_const('ENV', { 'http_proxy' => 'http://httpproxy:3128'})
+        subject.proxy_from_env.should eq('http://httpproxy:3128')
+        stub_const('ENV', { 'HTTP_PROXY' => 'http://httpproxy:3128'})
+        subject.proxy_from_env.should eq('http://httpproxy:3128')
+      end
+      it 'returns nil when no proxy defined in envs' do
+        stub_const('ENV', { })
+        subject.proxy_from_env.should nil
+      end
+    end
+
+    context 'setup_restclient' do
+      it 'instanciates a plain RestClient by default' do
+        subject.should_receive(:proxy_from_env).and_return(nil)
+        restclient = double("rest client")
+        RestClient::Request.should_receive(:new).and_return restclient
+        restclient.should_not_receive(:proxy)
+
+        subject.setup_restclient({})
+      end
+
+      it 'instanciates a RestClient assigning proxy when defined' do
+        subject.should_receive(:proxy_from_env).and_return('http://httpsproxy:3128')
+        restclient = double("rest client")
+        RestClient::Request.should_receive(:new).and_return restclient
+        restclient.should_receive(:proxy).with('http://httpsproxy:3128')
+
+        subject.setup_restclient({})
+      end
+
     end
   end
 end
