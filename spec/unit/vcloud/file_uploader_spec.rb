@@ -35,7 +35,8 @@ module VCloudCloud
     describe "#upload" do
       it "uploads stream to url" do
         VCloudCloud::NetHttpHelper.should_receive(:new).and_return(nethttphelper)
-        nethttphelper.should_receive(:http_proxy).and_return(nil, nil)
+        nethttphelper.should_receive(:http_proxy).and_return([nil, nil])
+        Net::HTTP::Put.stub(:new).with(upload_link, anything) { request }
         Net::HTTP.should_receive(:new).and_return(connection)
         request.stub(:body_stream=).with(stream)
         connection.should_receive(:start).and_yield(connection)
