@@ -19,6 +19,24 @@ module Bosh
       def initialize(options)
         @delegate = VCloudCloud::Cloud.new(options)
       end
+
+      ##
+      # Checks if a disk exists
+      #
+      # @param [String] disk disk_id that was once returned by {#create_disk}
+      # @return [Boolean] True if the disk exists
+      def has_disk?(disk_id)
+        not_implemented(:has_disk?)
+      end
+
+      private
+
+      def not_implemented(method)
+        raise Bosh::Clouds::NotImplemented,
+              "`#{method}' is not implemented by #{self.class}"
+      end
+
+
     end
 
     Vcloud = VCloud # alias name for dynamic plugin loading
